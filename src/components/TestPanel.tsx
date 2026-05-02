@@ -100,7 +100,7 @@ export function TestPanel({
                 <button
                   data-testid="open-browser-btn"
                   onClick={onOpenBrowser}
-                  disabled={!result.classFiles}
+                  disabled={!result.jsContent && !result.wasmContent}
                   className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50"
                 >
                   <Globe className="w-3.5 h-3.5" /> Open in browser

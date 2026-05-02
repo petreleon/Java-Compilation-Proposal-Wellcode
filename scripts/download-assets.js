@@ -7,18 +7,6 @@ const ASSETS = [
     url: 'https://repo1.maven.org/maven2/org/eclipse/jdt/ecj/3.42.0/ecj-3.42.0.jar',
     dest: path.join(__dirname, '..', 'vendor', 'ecj-3.42.0.jar'),
   },
-  {
-    url: 'https://github.com/plasma-umass/doppio-demo/raw/gh-pages/doppio_home.zip',
-    dest: path.join(__dirname, '..', 'public', 'doppio', 'doppio_home.zip'),
-  },
-  {
-    url: 'https://raw.githubusercontent.com/plasma-umass/doppio-demo/gh-pages/js/doppio.js',
-    dest: path.join(__dirname, '..', 'public', 'doppio', 'doppio.js'),
-  },
-  {
-    url: 'https://raw.githubusercontent.com/plasma-umass/doppio-demo/gh-pages/js/browserfs.min.js',
-    dest: path.join(__dirname, '..', 'public', 'doppio', 'browserfs.min.js'),
-  },
 ];
 
 function downloadFile(url, dest) {

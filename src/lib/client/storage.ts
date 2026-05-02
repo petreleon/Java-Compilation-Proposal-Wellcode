@@ -2,7 +2,7 @@
 
 import { BrowserJob } from '@/lib/types';
 
-const STORAGE_KEY = 'doppio_jobs';
+const STORAGE_KEY = 'browser_jobs';
 
 export function generateJobId(code: string): string {
   let hash = 0;

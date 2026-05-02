@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { randomUUID } from 'crypto';
-import { compileWithECJ, gatherClassFiles } from '@/lib/server/compiler';
+import { compileJavaCodeToEmscriptenWASM, getTeaCP } from '@/lib/server/teavm-emscripten';
 import { runIOTests } from '@/lib/server/ioRunner';
 import { IOTest } from '@/lib/types';
+
+let cachedTeaCP: string | undefined;
 
 export async function POST(request: NextRequest) {
   let tempDir = '';
@@ -24,20 +26,27 @@ export async function POST(request: NextRequest) {
     const { promises: fs } = await import('fs');
     await fs.mkdir(tempDir, { recursive: true });
 
-    // Compile
-    const compileRes = await compileWithECJ(javaCode, mainClassName, tempDir);
-    if (compileRes.exitCode !== 0) {
+    // Get TeaVM classpath (cached)
+    if (!cachedTeaCP) {
+      cachedTeaCP = await getTeaCP();
+    }
+
+    // Compile Java -> TeaVM C -> Emscripten WASM
+    const compileRes = await compileJavaCodeToEmscriptenWASM(
+      javaCode,
+      mainClassName,
+      tempDir,
+      cachedTeaCP
+    );
+    if (!compileRes.success) {
       return NextResponse.json(
-        { error: 'Compilation failed', stderr: compileRes.stderr, stdout: compileRes.stdout },
+        { error: compileRes.error },
         { status: 400 }
       );
     }
 
-    // Run I/O tests server-side
+    // Run I/O tests server-side using java directly (fast, no need for WASM)
     const testResults = await runIOTests(tempDir, mainClassName, tests);
-
-    // Gather class files
-    const classFiles = await gatherClassFiles(tempDir);
 
     // Generate deterministic job ID from code content
     let hash = 0;
@@ -47,14 +56,17 @@ export async function POST(request: NextRequest) {
     }
     const jobId = `job-${Math.abs(hash).toString(16)}-${Date.now().toString(36)}`;
 
-    // Clean up in background
+    // DEBUG: Print temp dir path before cleaning
+    // Clean up is disabled for debugging
+    // console.log('[DEBUG API] tempDir =', tempDir);
     fs.rm(tempDir, { recursive: true }).catch(() => {});
 
     return NextResponse.json({
       success: true,
       jobId,
       testResults,
-      classFiles,
+      jsContent: compileRes.jsContent,
+      wasmContent: compileRes.wasmContent,
       mainClassName,
     });
   } catch (err: any) {

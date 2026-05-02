@@ -14,7 +14,8 @@ export interface CompileResponse {
   success: true;
   jobId: string;
   testResults: ServerTestResult[];
-  classFiles: Record<string, string>;
+  jsContent: string;
+  wasmContent: string;
   mainClassName: string;
 }
 
@@ -27,7 +28,8 @@ export interface CompileErrorResponse {
 
 export interface BrowserJob {
   jobId: string;
-  classFiles: Record<string, string>;
+  jsContent: string;
+  wasmContent: string;
   mainClassName: string;
   stdin: string;
   createdAt: number;

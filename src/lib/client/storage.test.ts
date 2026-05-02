@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { generateJobId, saveJob, getJob } from './storage';
 import type { BrowserJob } from '../types';
 
-const STORAGE_KEY = 'doppio_jobs';
+const STORAGE_KEY = 'browser_jobs';
 
 describe('storage', () => {
   beforeEach(() => {

@@ -1,21 +1,18 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Script from 'next/script';
 import Terminal from '@/components/Terminal';
 import { getJob } from '@/lib/client/storage';
-import { bootJVM, StdinController } from '@/lib/client/doppio';
+import { bootTeaVMWorker, type StdinController } from '@/lib/client/teavm-worker';
 import type { BrowserJob } from '@/lib/types';
 
 function RunContent() {
   const inputRef = useRef<HTMLInputElement>(null);
-  const [status, setStatus] = useState('Loading runtime libraries…');
-  const [scriptsLoaded, setScriptsLoaded] = useState(0);
+  const [status, setStatus] = useState('Initializing...');
   const [inputVisible, setInputVisible] = useState(false);
   const hasBooted = useRef(false);
   const stdinCtrlRef = useRef<StdinController | null>(null);
 
-  // Read URL params client-side only to avoid hydration mismatch with useSearchParams
   const [jobId, setJobId] = useState<string | null>(null);
   const [job, setJob] = useState<BrowserJob | null>(null);
 
@@ -35,40 +32,44 @@ function RunContent() {
   };
 
   useEffect(() => {
-    if (scriptsLoaded < 2 || hasBooted.current || !job) return;
+    if (hasBooted.current || !job) return;
     hasBooted.current = true;
 
     let cancelled = false;
 
-    bootJVM(
-      job,
-      (s) => {
+    bootTeaVMWorker(job, {
+      onStatus: (s) => {
         if (!cancelled) setStatus(s);
       },
-      (text) => {
+      onStdout: (text) => {
         if (!cancelled) append(text);
       },
-      () => {
+      onStderr: (text) => {
+        if (!cancelled) append(text);
+      },
+      onShowInput: () => {
         if (!cancelled) setInputVisible(true);
       },
-      (code) => {
+      onExit: (code) => {
         if (!cancelled) {
           setInputVisible(false);
           setStatus(`Finished with exit code ${code}.`);
         }
-      }
-    ).then((ctrl) => {
+      },
+      onError: (message) => {
+        if (!cancelled) {
+          setInputVisible(false);
+          setStatus(`Error: ${message}`);
+        }
+      },
+    }).then((ctrl) => {
       stdinCtrlRef.current = ctrl;
     });
 
     return () => {
       cancelled = true;
-      // NOTE: do NOT reset hasBooted.current here. React StrictMode
-      // unmounts/remounts components in DEV, and resetting hasBooted
-      // causes a SECOND JVM to boot on the remount. hasBooted is a
-      // one-way gate — once the JVM boots, it stays booted.
     };
-  }, [scriptsLoaded, job]);
+  }, [job]);
 
   const sendInput = () => {
     const el = inputRef.current;
@@ -98,27 +99,11 @@ function RunContent() {
   }
 
   return (
-    <>
-      <Script
-        src="/doppio/setimmediate-polyfill.js"
-        strategy="beforeInteractive"
-      />
-      <Script
-        src="/doppio/browserfs.min.js"
-        strategy="afterInteractive"
-        onLoad={() => setScriptsLoaded((s) => s + 1)}
-      />
-      <Script
-        src="/doppio/doppio.js"
-        strategy="afterInteractive"
-        onLoad={() => setScriptsLoaded((s) => s + 1)}
-      />
-
-      <main className="flex flex-col h-screen bg-[var(--background)] text-[var(--foreground)]">
-        <header className="border-b border-gray-800/10 px-6 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-900/30">
-          <h1 className="text-base font-semibold">Run in Browser (DoppioJVM)</h1>
-          <span className="text-sm text-gray-500">{status}</span>
-        </header>
+    <main className="flex flex-col h-screen bg-[var(--background)] text-[var(--foreground)]">
+      <header className="border-b border-gray-800/10 px-6 py-3 flex items-center justify-between bg-gray-50 dark:bg-gray-900/30">
+        <h1 className="text-base font-semibold">Run in Browser (TeaVM)</h1>
+        <span className="text-sm text-gray-500">{status}</span>
+      </header>
 
       <div data-testid="terminal-container" className="flex-1 p-6 overflow-auto">{content}</div>
 
@@ -131,7 +116,7 @@ function RunContent() {
             autoFocus
             onKeyDown={(e) => e.key === 'Enter' && sendInput()}
             className="flex-1 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            placeholder="Type input and press Enter…"
+            placeholder="Type input and press Enter..."
           />
           <button
             data-testid="send-btn"
@@ -143,16 +128,15 @@ function RunContent() {
         </div>
       )}
 
-        <footer className="border-t border-gray-800/10 px-6 py-3 flex items-center justify-end bg-gray-50 dark:bg-gray-900/30 gap-3">
-          <button
-            onClick={() => window.location.reload()}
-            className="inline-flex items-center rounded-md bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700"
-          >
-            Run again
-          </button>
-        </footer>
-      </main>
-    </>
+      <footer className="border-t border-gray-800/10 px-6 py-3 flex items-center justify-end bg-gray-50 dark:bg-gray-900/30 gap-3">
+        <button
+          onClick={() => window.location.reload()}
+          className="inline-flex items-center rounded-md bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-emerald-700"
+        >
+          Run again
+        </button>
+      </footer>
+    </main>
   );
 }
 

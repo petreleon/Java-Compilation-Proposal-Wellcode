@@ -1,40 +1,55 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Java Browser Runtime
 
-It features a browser-based Java compiler and executor using the DoppioJVM project. The application compiles Java code server-side with the Eclipse Compiler for Java (ECJ) and then executes the resulting bytecode directly in the browser using a pure-JavaScript JVM implementation.
+A [Next.js](https://nextjs.org) project that compiles and runs Java code directly in the browser using [TeaVM](https://teavm.org/) compiled to WebAssembly via [Emscripten](https://emscripten.org/).
+
+## How it works
+
+1. **Server-side compilation**: Java source is compiled to bytecode with the [Eclipse Compiler for Java (ECJ)](https://www.eclipse.org/jdt/).
+2. **Bytecode → C**: TeaVM's C backend translates the bytecode to C source code.
+3. **C → WebAssembly**: Emscripten compiles the C output to WebAssembly with patches for:
+   - **stdin**: reads from a `SharedArrayBuffer` inside a WebWorker using `Atomics.wait`/`notify`
+   - **stdout**: captured via `printf` → Emscripten `Module.print` → `postMessage` back to the main thread
+4. **Browser execution**: A WebWorker loads the generated `.js` + `.wasm` runtime and communicates with the main thread for terminal I/O.
 
 ## Prerequisites
 
-You will need to ensure your Java environment is set up correctly before running the project, as it's used by the server for the actual compilation step and for running tests.
-
-1.  **Java Development Kit (JDK):** Install JDK 17.
-2.  **Apache Maven:** Ensure `mvn` is available in your system path.
-3.  **Node.js & npm:** Install Node.js and npm.
+- **Java Development Kit (JDK):** JDK 17+ installed and `JAVA_HOME` set.
+- **Emscripten SDK (emsdk):** Required for compiling C to WebAssembly.
+- **Node.js & npm:** For the Next.js frontend.
 
 ## Getting Started
 
-First, run the development server:
+Install dependencies and start the dev server:
 
 ```bash
+npm install   # downloads TeaVM jars automatically via postinstall
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-The environment will automatically download its required large assets on the first start.
+## Architecture
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Next.js 16 + React + Monaco Editor |
+| Server compilation | ECJ → TeaVM C backend → Emscripten |
+| Browser runtime | WebWorker + SharedArrayBuffer + Atomics |
+| I/O | Custom patched `ConsoleInputStream.c` for stdin, `log.c` for stdout |
+
+## Key files
+
+- `src/lib/server/teavm-emscripten.ts` — compile pipeline (ECJ → TeaVM → Emscripten)
+- `public/worker.js` — WebWorker that boots the Emscripten runtime
+- `src/lib/client/teavm-worker.ts` — client-side worker bootstrap and stdin controller
+- `src/app/run/page.tsx` — terminal UI for running compiled programs
 
 ## Learn More
 
-To learn more about the technologies used, take a look at the following resources:
-
--   [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
--   [DoppioJVM](https://github.com/plasma-umass/doppio) - the JavaScript-based JVM used for client-side execution.
+- [Next.js Documentation](https://nextjs.org/docs)
+- [TeaVM](https://teavm.org/)
+- [Emscripten](https://emscripten.org/)
 
 ## Deployment
 
-This project can be deployed to any platform that supports Node.js, like Vercel or a traditional VPS, as long as Java is installed in the deployment environment.
+Any Node.js platform (Vercel, VPS, etc.) works as long as Java and Emscripten are available in the environment.

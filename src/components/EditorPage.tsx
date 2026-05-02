@@ -58,11 +58,12 @@ export default function EditorPage({
   }, [javaCode, mainClassName, tests]);
 
   const openInBrowser = () => {
-    if (!result?.classFiles || !result?.jobId) return;
+    if (!result?.jsContent || !result?.wasmContent || !result?.jobId) return;
 
     const job = {
       jobId: result.jobId,
-      classFiles: result.classFiles,
+      jsContent: result.jsContent,
+      wasmContent: result.wasmContent,
       mainClassName: result.mainClassName,
       stdin: '',
       createdAt: Date.now(),
